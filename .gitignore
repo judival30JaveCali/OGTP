@@ -1,0 +1,14 @@
+# Carpeta de datos: contiene excels con información personal/salarial de
+# profesores. Nunca se versiona.
+Proyecto_1_RegistroMensual/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Salidas y archivos temporales de Excel
+Reporte_Escalafon_*.xlsx
+~$*.xlsx
+.~lock.*#

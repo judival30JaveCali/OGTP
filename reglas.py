@@ -15,6 +15,11 @@ DESEMPENO_VALIDO = {"MUY BUENO", "DESTACADO"}
 
 @dataclass
 class ReglaPromocion:
+    """Una condición completa de ascenso a la siguiente categoría
+    (Instructor->Asistente, Asistente->Asociado, Asociado->Titular).
+    Los campos en None/vacío no se evalúan (p.ej. `actividad=None` significa
+    que esa regla no exige una Actividad Preponderante puntual)."""
+
     categoria: str
     resultado: str
     actividad: str | None = None          # None = no se exige actividad puntual
@@ -26,6 +31,8 @@ class ReglaPromocion:
     idiomas_validos: set[str] = field(default_factory=set)
 
     def aplica(self, fila: dict) -> bool:
+        """True si el profesor (`fila`, un dict con las columnas del
+        reporte) cumple TODAS las condiciones de esta regla."""
         if fila.get("Categoría") != self.categoria:
             return False
         if self.actividad is not None and fila.get("Actividad Preponderante") != self.actividad:
@@ -55,6 +62,12 @@ class ReglaPromocion:
 
 @dataclass
 class ReglaEscalaIntermedia:
+    """Una condición completa de cambio de escala dentro de la misma
+    categoría (p.ej. Asistente - Escala 1 -> Escala 2). A diferencia de
+    ReglaPromocion, aquí la actividad y la formación siempre son
+    obligatorias, y el umbral de Valoración Docencia se exige por diseño en
+    ambos años (2024 y 2025)."""
+
     categoria_escala: str
     resultado: str
     actividades: set[str]
@@ -63,6 +76,8 @@ class ReglaEscalaIntermedia:
     umbral_docencia: float = 90
 
     def aplica(self, fila: dict) -> bool:
+        """True si el profesor (`fila`) cumple TODAS las condiciones de
+        esta regla."""
         if fila.get("Categ/Escala Intermedia/Nivel") != self.categoria_escala:
             return False
         if fila.get("Actividad Preponderante") not in self.actividades:
@@ -172,6 +187,17 @@ REGLAS_ESCALA_INTERMEDIA: list[ReglaEscalaIntermedia] = [
 
 
 def evaluar_promocion(fila: dict) -> str:
+    """Recorre REGLAS_PROMOCION en orden y devuelve el resultado de la
+    primera que aplique. Si ninguna aplica, un Titular siempre sale como
+    "MÁXIMA CATEGORÍA" (ya no hay a dónde ascender); cualquier otra
+    categoría sale "SIN POSIBILIDAD ASCENSO".
+
+    Recibe `fila`: un dict con una fila del reporte (una llave por columna
+    de Profesores_General). Las llaves que de verdad usa son "Categoría",
+    "Actividad Preponderante", "Tiempo Categoría / Nivel", "Productos
+    Investigación", "Productos Docencia", "Total", "Último nivel de
+    formación", "Nivel de idioma", "Valoración Desempeño 2024" y
+    "Valoración Desempeño 2025"; el resto de columnas se ignoran."""
     for regla in REGLAS_PROMOCION:
         if regla.aplica(fila):
             return regla.resultado
@@ -181,6 +207,15 @@ def evaluar_promocion(fila: dict) -> str:
 
 
 def evaluar_escala_intermedia(fila: dict) -> str:
+    """Recorre REGLAS_ESCALA_INTERMEDIA en orden y devuelve el resultado de
+    la primera que aplique, o "SIN POSIBILIDAD CAMBIO ESCALA" si ninguna
+    aplica.
+
+    Recibe `fila`: un dict con una fila del reporte (una llave por columna
+    de Profesores_General). Las llaves que de verdad usa son "Categ/Escala
+    Intermedia/Nivel", "Actividad Preponderante", "Último nivel de
+    formación", "Total", "Valoración Docencia 2024" y "Valoración Docencia
+    2025"; el resto de columnas se ignoran."""
     for regla in REGLAS_ESCALA_INTERMEDIA:
         if regla.aplica(fila):
             return regla.resultado
